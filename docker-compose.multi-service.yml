@@ -1,0 +1,443 @@
+# Multi-Service Docker Compose Configuration
+# This demonstrates how to run multiple microservices with separate databases
+
+version: '3.8'
+
+networks:
+  ecommerce_network:
+    driver: bridge
+
+volumes:
+  users_db_data:
+    driver: local
+  products_db_data:
+    driver: local
+  orders_db_data:
+    driver: local
+  inventory_db_data:
+    driver: local
+  redis_data:
+    driver: local
+
+services:
+  # ===========================================
+  # DATABASE SERVICES (One per microservice)
+  # ===========================================
+  
+  # User Service Database
+  users_db:
+    image: postgres:15-alpine
+    container_name: ecommerce_users_db
+    environment:
+      POSTGRES_DB: users_db
+      POSTGRES_USER: users_user
+      POSTGRES_PASSWORD: users_secure_password
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "5433:5432"  # Different port to avoid conflicts
+    volumes:
+      - users_db_data:/var/lib/postgresql/data
+      - ./database/init/users:/docker-entrypoint-initdb.d
+    networks:
+      - ecommerce_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U users_user -d users_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Product Service Database (Current service)
+  products_db:
+    image: postgres:15-alpine
+    container_name: ecommerce_products_db
+    environment:
+      POSTGRES_DB: products_db
+      POSTGRES_USER: products_user
+      POSTGRES_PASSWORD: products_secure_password
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "5432:5432"  # Main product service port
+    volumes:
+      - products_db_data:/var/lib/postgresql/data
+      - ./database/init/products:/docker-entrypoint-initdb.d
+    networks:
+      - ecommerce_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U products_user -d products_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Order Service Database
+  orders_db:
+    image: postgres:15-alpine
+    container_name: ecommerce_orders_db
+    environment:
+      POSTGRES_DB: orders_db
+      POSTGRES_USER: orders_user
+      POSTGRES_PASSWORD: orders_secure_password
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "5434:5432"  # Different port
+    volumes:
+      - orders_db_data:/var/lib/postgresql/data
+      - ./database/init/orders:/docker-entrypoint-initdb.d
+    networks:
+      - ecommerce_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U orders_user -d orders_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Inventory Service Database
+  inventory_db:
+    image: postgres:15-alpine
+    container_name: ecommerce_inventory_db
+    environment:
+      POSTGRES_DB: inventory_db
+      POSTGRES_USER: inventory_user
+      POSTGRES_PASSWORD: inventory_secure_password
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "5435:5432"  # Different port
+    volumes:
+      - inventory_db_data:/var/lib/postgresql/data
+      - ./database/init/inventory:/docker-entrypoint-initdb.d
+    networks:
+      - ecommerce_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U inventory_user -d inventory_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ===========================================
+  # SHARED INFRASTRUCTURE
+  # ===========================================
+  
+  # Redis Cache (Shared or can be per service)
+  redis:
+    image: redis:7-alpine
+    container_name: ecommerce_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - ecommerce_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+
+  # Message Queue (for inter-service communication)
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: ecommerce_rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ecommerce
+      RABBITMQ_DEFAULT_PASS: rabbitmq_password
+    ports:
+      - "5672:5672"   # AMQP port
+      - "15672:15672" # Management UI
+    networks:
+      - ecommerce_network
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 30s
+      timeout: 30s
+      retries: 3
+    restart: unless-stopped
+
+  # ===========================================
+  # MICROSERVICES
+  # ===========================================
+  
+  # User Service
+  user_service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ecommerce_user_service
+    ports:
+      - "8001:8000"
+    environment:
+      # Database Configuration
+      - DATABASE_URL=postgresql+asyncpg://users_user:users_secure_password@users_db:5432/users_db
+      - REDIS_URL=redis://redis:6379/1
+      
+      # Service Identity
+      - SERVICE_NAME=user-service
+      - SERVICE_VERSION=1.0.0
+      - API_V1_STR=/api/v1
+      - DEBUG=True
+      
+      # Security
+      - SECRET_KEY=user-service-secret-key-change-in-production
+      - ALGORITHM=HS256
+      - ACCESS_TOKEN_EXPIRE_MINUTES=30
+      
+      # Inter-service URLs
+      - PRODUCT_SERVICE_URL=http://product_service:8000
+      - ORDER_SERVICE_URL=http://order_service:8000
+      - INVENTORY_SERVICE_URL=http://inventory_service:8000
+      
+      # Message Queue
+      - RABBITMQ_URL=amqp://ecommerce:rabbitmq_password@rabbitmq:5672/
+    depends_on:
+      users_db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - ecommerce_network
+    volumes:
+      - ./uploads/users:/app/uploads
+    restart: unless-stopped
+    profiles:
+      - user-service
+      - all-services
+
+  # Product Service (Current - Modified for multi-service)
+  product_service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ecommerce_product_service
+    ports:
+      - "8000:8000"
+    environment:
+      # Database Configuration
+      - DATABASE_URL=postgresql+asyncpg://products_user:products_secure_password@products_db:5432/products_db
+      - REDIS_URL=redis://redis:6379/2
+      
+      # Service Identity
+      - SERVICE_NAME=product-service
+      - SERVICE_VERSION=1.0.0
+      - API_V1_STR=/api/v1
+      - DEBUG=True
+      
+      # Security
+      - SECRET_KEY=product-service-secret-key-change-in-production
+      
+      # Inter-service URLs
+      - USER_SERVICE_URL=http://user_service:8000
+      - ORDER_SERVICE_URL=http://order_service:8000
+      - INVENTORY_SERVICE_URL=http://inventory_service:8000
+      
+      # Message Queue
+      - RABBITMQ_URL=amqp://ecommerce:rabbitmq_password@rabbitmq:5672/
+    depends_on:
+      products_db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - ecommerce_network
+    volumes:
+      - ./uploads/products:/app/uploads
+    restart: unless-stopped
+    profiles:
+      - product-service
+      - all-services
+
+  # Order Service
+  order_service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ecommerce_order_service
+    ports:
+      - "8002:8000"
+    environment:
+      # Database Configuration
+      - DATABASE_URL=postgresql+asyncpg://orders_user:orders_secure_password@orders_db:5432/orders_db
+      - REDIS_URL=redis://redis:6379/3
+      
+      # Service Identity
+      - SERVICE_NAME=order-service
+      - SERVICE_VERSION=1.0.0
+      - API_V1_STR=/api/v1
+      - DEBUG=True
+      
+      # Security
+      - SECRET_KEY=order-service-secret-key-change-in-production
+      
+      # Inter-service URLs
+      - USER_SERVICE_URL=http://user_service:8000
+      - PRODUCT_SERVICE_URL=http://product_service:8000
+      - INVENTORY_SERVICE_URL=http://inventory_service:8000
+      
+      # Message Queue
+      - RABBITMQ_URL=amqp://ecommerce:rabbitmq_password@rabbitmq:5672/
+    depends_on:
+      orders_db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      user_service:
+        condition: service_started
+      product_service:
+        condition: service_started
+    networks:
+      - ecommerce_network
+    volumes:
+      - ./uploads/orders:/app/uploads
+    restart: unless-stopped
+    profiles:
+      - order-service
+      - all-services
+
+  # Inventory Service
+  inventory_service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ecommerce_inventory_service
+    ports:
+      - "8003:8000"
+    environment:
+      # Database Configuration
+      - DATABASE_URL=postgresql+asyncpg://inventory_user:inventory_secure_password@inventory_db:5432/inventory_db
+      - REDIS_URL=redis://redis:6379/4
+      
+      # Service Identity
+      - SERVICE_NAME=inventory-service
+      - SERVICE_VERSION=1.0.0
+      - API_V1_STR=/api/v1
+      - DEBUG=True
+      
+      # Security
+      - SECRET_KEY=inventory-service-secret-key-change-in-production
+      
+      # Inter-service URLs
+      - USER_SERVICE_URL=http://user_service:8000
+      - PRODUCT_SERVICE_URL=http://product_service:8000
+      - ORDER_SERVICE_URL=http://order_service:8000
+      
+      # Message Queue
+      - RABBITMQ_URL=amqp://ecommerce:rabbitmq_password@rabbitmq:5672/
+    depends_on:
+      inventory_db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - ecommerce_network
+    volumes:
+      - ./uploads/inventory:/app/uploads
+    restart: unless-stopped
+    profiles:
+      - inventory-service
+      - all-services
+
+  # ===========================================
+  # API GATEWAY & LOAD BALANCER
+  # ===========================================
+  
+  # API Gateway (Nginx)
+  api_gateway:
+    image: nginx:alpine
+    container_name: ecommerce_api_gateway
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - user_service
+      - product_service
+      - order_service
+      - inventory_service
+    networks:
+      - ecommerce_network
+    restart: unless-stopped
+    profiles:
+      - gateway
+      - all-services
+
+  # ===========================================
+  # MONITORING & MANAGEMENT
+  # ===========================================
+  
+  # Database Administration
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: ecommerce_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@ecommerce.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "5050:80"
+    depends_on:
+      - users_db
+      - products_db
+      - orders_db
+      - inventory_db
+    networks:
+      - ecommerce_network
+    profiles:
+      - tools
+      - monitoring
+
+  # Redis Management
+  redis_commander:
+    image: rediscommander/redis-commander:latest
+    container_name: ecommerce_redis_commander
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    ports:
+      - "8081:8081"
+    depends_on:
+      - redis
+    networks:
+      - ecommerce_network
+    profiles:
+      - tools
+      - monitoring
+
+# ===========================================
+# USAGE COMMANDS
+# ===========================================
+
+# Start only databases:
+# docker-compose -f docker-compose.multi-service.yml up -d users_db products_db orders_db inventory_db redis rabbitmq
+
+# Start specific service with its database:
+# docker-compose -f docker-compose.multi-service.yml --profile product-service up -d
+
+# Start all services:
+# docker-compose -f docker-compose.multi-service.yml --profile all-services up -d
+
+# Start with monitoring tools:
+# docker-compose -f docker-compose.multi-service.yml --profile all-services --profile tools up -d
+
+# Scale specific service:
+# docker-compose -f docker-compose.multi-service.yml up -d --scale product_service=3
+
+# View logs:
+# docker-compose -f docker-compose.multi-service.yml logs -f product_service
+
+# Stop all:
+# docker-compose -f docker-compose.multi-service.yml down
+
+# Clean volumes:
+# docker-compose -f docker-compose.multi-service.yml down -v

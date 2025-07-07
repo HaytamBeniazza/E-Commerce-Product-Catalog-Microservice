@@ -1,0 +1,120 @@
+"""Pydantic schemas package for the e-commerce microservice.
+
+This package contains all Pydantic models for request/response validation,
+serialization, and API documentation.
+"""
+
+from app.schemas.brand import (
+    Brand,
+    BrandCreate,
+    BrandSummary,
+    BrandUpdate,
+    BrandStats,
+    BrandBulkOperation,
+    BrandImport,
+    BrandComparison,
+)
+from app.schemas.category import (
+    Category,
+    CategoryCreate,
+    CategorySummary,
+    CategoryTree,
+    CategoryUpdate,
+    CategoryWithChildren,
+    CategoryBreadcrumb,
+    CategoryStats,
+    CategoryBulkOperation,
+    CategoryImport,
+)
+from app.schemas.common import (
+    PaginatedResponse,
+    PaginationParams,
+    SearchParams,
+    SuccessResponse,
+    ErrorResponse,
+    FilterParams,
+    SortParams,
+    HealthCheck,
+    BulkOperation,
+    BulkOperationResult,
+)
+from app.schemas.product import (
+    Product,
+    ProductCreate,
+    ProductImage,
+    ProductImageCreate,
+    ProductSummary,
+    ProductUpdate,
+    ProductStats,
+    ProductBulkOperation,
+    ProductImport,
+    ProductSearch,
+)
+from app.schemas.user import (
+    User,
+    UserCreate,
+    UserLogin,
+    UserUpdate,
+    UserSummary,
+    UserPasswordChange,
+    UserPasswordReset,
+    UserPasswordResetConfirm,
+    TokenResponse,
+    TokenRefresh,
+)
+
+__all__ = [
+    # Common schemas
+    "PaginatedResponse",
+    "PaginationParams",
+    "SearchParams",
+    "SuccessResponse",
+    "ErrorResponse",
+    "FilterParams",
+    "SortParams",
+    "HealthCheck",
+    "BulkOperation",
+    "BulkOperationResult",
+    # User schemas
+    "User",
+    "UserCreate",
+    "UserUpdate",
+    "UserLogin",
+    "UserSummary",
+    "UserPasswordChange",
+    "UserPasswordReset",
+    "UserPasswordResetConfirm",
+    "TokenResponse",
+    "TokenRefresh",
+    # Category schemas
+    "Category",
+    "CategoryCreate",
+    "CategoryUpdate",
+    "CategorySummary",
+    "CategoryTree",
+    "CategoryWithChildren",
+    "CategoryBreadcrumb",
+    "CategoryStats",
+    "CategoryBulkOperation",
+    "CategoryImport",
+    # Brand schemas
+    "Brand",
+    "BrandCreate",
+    "BrandUpdate",
+    "BrandSummary",
+    "BrandStats",
+    "BrandBulkOperation",
+    "BrandImport",
+    "BrandComparison",
+    # Product schemas
+    "Product",
+    "ProductCreate",
+    "ProductUpdate",
+    "ProductSummary",
+    "ProductImage",
+    "ProductImageCreate",
+    "ProductStats",
+    "ProductBulkOperation",
+    "ProductImport",
+    "ProductSearch",
+]
