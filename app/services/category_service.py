@@ -1,7 +1,7 @@
-"""Category service for managing category operations.
+"""CategoryModel service for managing CategoryModel operations.
 
-This module provides functionality for category CRUD operations,
-hierarchy management, and category analytics.
+This module provides functionality for CategoryModel CRUD operations,
+hierarchy management, and CategoryModel analytics.
 """
 
 from typing import Dict, List, Optional
@@ -11,8 +11,9 @@ from sqlalchemy import and_, desc, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.category import Category
+from app.models.category import Category as CategoryModel
 from app.schemas.category import (
+    Category,
     CategoryCreate,
     CategoryUpdate,
     CategoryMove,
@@ -26,43 +27,43 @@ from app.services.cache_service import CacheService
 
 
 class CategoryService:
-    """Service for managing category operations."""
+    """Service for managing CategoryModel operations."""
     
     def __init__(self, db_session: AsyncSession, cache_service: Optional[CacheService] = None):
-        """Initialize category service.
+        """Initialize CategoryModel service.
         
         Args:
             db_session: Database session
-            cache_service: Cache service for storing category data
+            cache_service: Cache service for storing CategoryModel data
         """
         self.db = db_session
         self.cache = cache_service
     
-    async def create_category(self, category_data: CategoryCreate, user_id: str) -> Category:
-        """Create a new category.
+    async def create_category(self, category_data: CategoryCreate, user_id: str) -> CategoryModel:
+        """Create a new CategoryModel.
         
         Args:
-            category_data: Category creation data
+            category_data: CategoryModel creation data
             user_id: ID of user creating the category
             
         Returns:
-            Created category object
+            Created CategoryModel object
             
         Raises:
-            HTTPException: If parent category not found or circular reference detected
+            HTTPException: If parent CategoryModel not found or circular reference detected
         """
-        # Validate parent category if provided
+        # Validate parent CategoryModel if provided
         parent_category = None
         if category_data.parent_id:
             parent_category = await self.get_category(category_data.parent_id)
             if not parent_category:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Parent category not found"
+                    detail="Parent CategoryModel not found"
                 )
         
         # Create category
-        category = Category(
+        CategoryModel = CategoryModel(
             name=category_data.name,
             description=category_data.description,
             image_url=category_data.image_url,
@@ -77,27 +78,27 @@ class CategoryService:
             created_by=user_id
         )
         
-        self.db.add(category)
+        self.db.add(CategoryModel)
         await self.db.commit()
-        await self.db.refresh(category)
+        await self.db.refresh(CategoryModel)
         
         # Cache category
         if self.cache:
-            await self.cache.set_category(category)
-            # Clear category tree cache
+            await self.cache.set_category(CategoryModel)
+            # Clear CategoryModel tree cache
             await self.cache.delete("category_tree")
         
         return category
     
-    async def get_category(self, category_id: str, increment_view: bool = False) -> Optional[Category]:
-        """Get category by ID.
+    async def get_category(self, category_id: str, increment_view: bool = False) -> Optional[CategoryModel]:
+        """Get CategoryModel by ID.
         
         Args:
-            category_id: Category ID
+            category_id: CategoryModel ID
             increment_view: Whether to increment view count
             
         Returns:
-            Category object or None if not found
+            CategoryModel object or None if not found
         """
         # Try cache first
         if self.cache:
@@ -109,19 +110,19 @@ class CategoryService:
         
         # Query database
         result = await self.db.execute(
-            select(Category)
+            select(CategoryModel)
             .options(
-                selectinload(Category.children),
-                selectinload(Category.parent)
+                selectinload(CategoryModel.children),
+                selectinload(CategoryModel.parent)
             )
-            .where(Category.id == category_id)
+            .where(CategoryModel.id == category_id)
         )
-        category = result.scalar_one_or_none()
+        CategoryModel = result.scalar_one_or_none()
         
-        if category:
+        if CategoryModel:
             # Cache category
             if self.cache:
-                await self.cache.set_category(category)
+                await self.cache.set_category(CategoryModel)
             
             # Increment view count
             if increment_view:
@@ -129,54 +130,54 @@ class CategoryService:
         
         return category
     
-    async def get_category_by_slug(self, slug: str, increment_view: bool = False) -> Optional[Category]:
-        """Get category by slug.
+    async def get_category_by_slug(self, slug: str, increment_view: bool = False) -> Optional[CategoryModel]:
+        """Get CategoryModel by slug.
         
         Args:
-            slug: Category slug
+            slug: CategoryModel slug
             increment_view: Whether to increment view count
             
         Returns:
-            Category object or None if not found
+            CategoryModel object or None if not found
         """
         result = await self.db.execute(
-            select(Category)
+            select(CategoryModel)
             .options(
-                selectinload(Category.children),
-                selectinload(Category.parent)
+                selectinload(CategoryModel.children),
+                selectinload(CategoryModel.parent)
             )
-            .where(Category.slug == slug)
+            .where(CategoryModel.slug == slug)
         )
-        category = result.scalar_one_or_none()
+        CategoryModel = result.scalar_one_or_none()
         
-        if category and increment_view:
-            await self._increment_view_count(str(category.id))
+        if CategoryModel and increment_view:
+            await self._increment_view_count(str(CategoryModel.id))
         
         return category
     
-    async def update_category(self, category_id: str, category_data: CategoryUpdate, user_id: str) -> Category:
-        """Update an existing category.
+    async def update_category(self, category_id: str, category_data: CategoryUpdate, user_id: str) -> CategoryModel:
+        """Update an existing CategoryModel.
         
         Args:
-            category_id: Category ID
-            category_data: Category update data
+            category_id: CategoryModel ID
+            category_data: CategoryModel update data
             user_id: ID of user updating the category
             
         Returns:
-            Updated category object
+            Updated CategoryModel object
             
         Raises:
-            HTTPException: If category not found or circular reference detected
+            HTTPException: If CategoryModel not found or circular reference detected
         """
         # Get existing category
-        category = await self.get_category(category_id)
-        if not category:
+        CategoryModel = await self.get_category(category_id)
+        if not CategoryModel:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Category not found"
+                detail="CategoryModel not found"
             )
         
-        # Validate parent category if being updated
+        # Validate parent CategoryModel if being updated
         if category_data.parent_id is not None:
             if category_data.parent_id:
                 # Check if parent exists
@@ -184,7 +185,7 @@ class CategoryService:
                 if not parent_category:
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
-                        detail="Parent category not found"
+                        detail="Parent CategoryModel not found"
                     )
                 
                 # Check for circular reference
@@ -194,15 +195,15 @@ class CategoryService:
                         detail="Cannot set parent: would create circular reference"
                     )
         
-        # Update category fields
+        # Update CategoryModel fields
         update_data = category_data.dict(exclude_unset=True)
         update_data['updated_by'] = user_id
         
         for field, value in update_data.items():
-            setattr(category, field, value)
+            setattr(CategoryModel, field, value)
         
         await self.db.commit()
-        await self.db.refresh(category, ['children', 'parent'])
+        await self.db.refresh(CategoryModel, ['children', 'parent'])
         
         # Clear cache
         if self.cache:
@@ -212,46 +213,46 @@ class CategoryService:
         return category
     
     async def delete_category(self, category_id: str, force: bool = False) -> None:
-        """Delete a category.
+        """Delete a CategoryModel.
         
         Args:
-            category_id: Category ID
-            force: Whether to force delete even if category has children or products
+            category_id: CategoryModel ID
+            force: Whether to force delete even if CategoryModel has children or products
             
         Raises:
-            HTTPException: If category not found or has dependencies
+            HTTPException: If CategoryModel not found or has dependencies
         """
-        category = await self.get_category(category_id)
-        if not category:
+        CategoryModel = await self.get_category(category_id)
+        if not CategoryModel:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Category not found"
+                detail="CategoryModel not found"
             )
         
         # Check for children
-        if category.children and not force:
+        if CategoryModel.children and not force:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Cannot delete category with children. Use force=true or move children first."
+                detail="Cannot delete CategoryModel with children. Use force=true or move children first."
             )
         
         # Check for products
-        if category.product_count > 0 and not force:
+        if CategoryModel.product_count > 0 and not force:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Cannot delete category with products. Use force=true or move products first."
+                detail="Cannot delete CategoryModel with products. Use force=true or move products first."
             )
         
         # If force delete, move children to parent
-        if force and category.children:
+        if force and CategoryModel.children:
             await self.db.execute(
-                update(Category)
-                .where(Category.parent_id == category_id)
-                .values(parent_id=category.parent_id)
+                update(CategoryModel)
+                .where(CategoryModel.parent_id == category_id)
+                .values(parent_id=CategoryModel.parent_id)
             )
         
         # Delete category
-        await self.db.delete(category)
+        await self.db.delete(CategoryModel)
         await self.db.commit()
         
         # Clear cache
@@ -259,24 +260,24 @@ class CategoryService:
             await self.cache.delete_category(category_id)
             await self.cache.delete("category_tree")
     
-    async def move_category(self, category_id: str, move_data: CategoryMove) -> Category:
-        """Move category to different parent.
+    async def move_category(self, category_id: str, move_data: CategoryMove) -> CategoryModel:
+        """Move CategoryModel to different parent.
         
         Args:
-            category_id: Category ID
+            category_id: CategoryModel ID
             move_data: Move operation data
             
         Returns:
-            Updated category object
+            Updated CategoryModel object
             
         Raises:
-            HTTPException: If category not found or circular reference detected
+            HTTPException: If CategoryModel not found or circular reference detected
         """
-        category = await self.get_category(category_id)
-        if not category:
+        CategoryModel = await self.get_category(category_id)
+        if not CategoryModel:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Category not found"
+                detail="CategoryModel not found"
             )
         
         # Validate new parent
@@ -285,25 +286,25 @@ class CategoryService:
             if not parent_category:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="New parent category not found"
+                    detail="New parent CategoryModel not found"
                 )
             
             # Check for circular reference
             if await self._would_create_circular_reference(category_id, move_data.new_parent_id):
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Cannot move category: would create circular reference"
+                    detail="Cannot move CategoryModel: would create circular reference"
                 )
         
         # Update parent
-        category.parent_id = move_data.new_parent_id
+        CategoryModel.parent_id = move_data.new_parent_id
         
         # Update position if specified
         if move_data.new_position is not None:
-            category.display_order = move_data.new_position
+            CategoryModel.display_order = move_data.new_position
         
         await self.db.commit()
-        await self.db.refresh(category, ['children', 'parent'])
+        await self.db.refresh(CategoryModel, ['children', 'parent'])
         
         # Clear cache
         if self.cache:
@@ -322,7 +323,7 @@ class CategoryService:
         """Get categories with optional filtering and pagination.
         
         Args:
-            parent_id: Filter by parent category ID (None for root categories)
+            parent_id: Filter by parent CategoryModel ID (None for root categories)
             active_only: Whether to return only active categories
             featured_only: Whether to return only featured categories
             pagination: Pagination parameters
@@ -331,30 +332,30 @@ class CategoryService:
             Paginated response or list of categories
         """
         # Build query
-        query = select(Category).options(
-            selectinload(Category.children),
-            selectinload(Category.parent)
+        query = select(CategoryModel).options(
+            selectinload(CategoryModel.children),
+            selectinload(CategoryModel.parent)
         )
         
         # Apply filters
         conditions = []
         
         if parent_id is not None:
-            conditions.append(Category.parent_id == parent_id)
+            conditions.append(CategoryModel.parent_id == parent_id)
         else:
-            conditions.append(Category.parent_id.is_(None))
+            conditions.append(CategoryModel.parent_id.is_(None))
         
         if active_only:
-            conditions.append(Category.is_active == True)
+            conditions.append(CategoryModel.is_active == True)
         
         if featured_only:
-            conditions.append(Category.is_featured == True)
+            conditions.append(CategoryModel.is_featured == True)
         
         if conditions:
             query = query.where(and_(*conditions))
         
         # Apply ordering
-        query = query.order_by(Category.display_order, Category.name)
+        query = query.order_by(CategoryModel.display_order, CategoryModel.name)
         
         # Handle pagination
         if pagination:
@@ -383,7 +384,7 @@ class CategoryService:
             return list(result.scalars().all())
     
     async def get_category_tree(self, active_only: bool = True) -> List[CategoryTree]:
-        """Get complete category tree.
+        """Get complete CategoryModel tree.
         
         Args:
             active_only: Whether to include only active categories
@@ -399,11 +400,11 @@ class CategoryService:
                 return cached_tree
         
         # Get all categories
-        query = select(Category)
+        query = select(CategoryModel)
         if active_only:
-            query = query.where(Category.is_active == True)
+            query = query.where(CategoryModel.is_active == True)
         
-        query = query.order_by(Category.display_order, Category.name)
+        query = query.order_by(CategoryModel.display_order, CategoryModel.name)
         result = await self.db.execute(query)
         all_categories = result.scalars().all()
         
@@ -411,10 +412,10 @@ class CategoryService:
         category_dict = {str(cat.id): cat for cat in all_categories}
         tree = []
         
-        for category in all_categories:
-            if category.parent_id is None:
+        for CategoryModel in all_categories:
+            if CategoryModel.parent_id is None:
                 # Root category
-                tree_node = self._build_category_tree_node(category, category_dict)
+                tree_node = self._build_category_tree_node(CategoryModel, category_dict)
                 tree.append(tree_node)
         
         # Cache tree
@@ -423,17 +424,17 @@ class CategoryService:
         
         return tree
     
-    async def get_category_breadcrumbs(self, category_id: str) -> List[Category]:
-        """Get breadcrumb trail for a category.
+    async def get_category_breadcrumbs(self, category_id: str) -> List[CategoryModel]:
+        """Get breadcrumb trail for a CategoryModel.
         
         Args:
-            category_id: Category ID
+            category_id: CategoryModel ID
             
         Returns:
             List of categories from root to current category
         """
-        category = await self.get_category(category_id)
-        if not category:
+        CategoryModel = await self.get_category(category_id)
+        if not CategoryModel:
             return []
         
         breadcrumbs = []
@@ -448,7 +449,7 @@ class CategoryService:
         
         return breadcrumbs
     
-    async def get_featured_categories(self, limit: int = 10) -> List[Category]:
+    async def get_featured_categories(self, limit: int = 10) -> List[CategoryModel]:
         """Get featured categories.
         
         Args:
@@ -465,18 +466,18 @@ class CategoryService:
         
         # Query database
         result = await self.db.execute(
-            select(Category)
+            select(CategoryModel)
             .options(
-                selectinload(Category.children),
-                selectinload(Category.parent)
+                selectinload(CategoryModel.children),
+                selectinload(CategoryModel.parent)
             )
             .where(
                 and_(
-                    Category.is_featured == True,
-                    Category.is_active == True
+                    CategoryModel.is_featured == True,
+                    CategoryModel.is_active == True
                 )
             )
-            .order_by(Category.display_order, desc(Category.product_count))
+            .order_by(CategoryModel.display_order, desc(CategoryModel.product_count))
             .limit(limit)
         )
         categories = result.scalars().all()
@@ -501,7 +502,7 @@ class CategoryService:
         
         # Verify categories exist
         result = await self.db.execute(
-            select(func.count()).where(Category.id.in_(category_ids))
+            select(func.count()).where(CategoryModel.id.in_(category_ids))
         )
         existing_count = result.scalar()
         
@@ -514,26 +515,26 @@ class CategoryService:
         # Perform operation
         if operation == "activate":
             await self.db.execute(
-                update(Category)
-                .where(Category.id.in_(category_ids))
+                update(CategoryModel)
+                .where(CategoryModel.id.in_(category_ids))
                 .values(is_active=True)
             )
         elif operation == "deactivate":
             await self.db.execute(
-                update(Category)
-                .where(Category.id.in_(category_ids))
+                update(CategoryModel)
+                .where(CategoryModel.id.in_(category_ids))
                 .values(is_active=False)
             )
         elif operation == "feature":
             await self.db.execute(
-                update(Category)
-                .where(Category.id.in_(category_ids))
+                update(CategoryModel)
+                .where(CategoryModel.id.in_(category_ids))
                 .values(is_featured=True)
             )
         elif operation == "unfeature":
             await self.db.execute(
-                update(Category)
-                .where(Category.id.in_(category_ids))
+                update(CategoryModel)
+                .where(CategoryModel.id.in_(category_ids))
                 .values(is_featured=False)
             )
         elif operation == "delete":
@@ -542,9 +543,9 @@ class CategoryService:
                 select(func.count())
                 .where(
                     and_(
-                        Category.id.in_(category_ids),
-                        Category.id.in_(
-                            select(Category.parent_id).where(Category.parent_id.is_not(None))
+                        CategoryModel.id.in_(category_ids),
+                        CategoryModel.id.in_(
+                            select(CategoryModel.parent_id).where(CategoryModel.parent_id.is_not(None))
                         )
                     )
                 )
@@ -558,7 +559,7 @@ class CategoryService:
             
             # Delete categories
             await self.db.execute(
-                Category.__table__.delete().where(Category.id.in_(category_ids))
+                CategoryModel.__table__.delete().where(CategoryModel.id.in_(category_ids))
             )
         
         await self.db.commit()
@@ -576,22 +577,22 @@ class CategoryService:
         }
     
     async def get_category_stats(self, category_id: str) -> CategoryStats:
-        """Get category statistics.
+        """Get CategoryModel statistics.
         
         Args:
-            category_id: Category ID
+            category_id: CategoryModel ID
             
         Returns:
-            Category statistics
+            CategoryModel statistics
             
         Raises:
-            HTTPException: If category not found
+            HTTPException: If CategoryModel not found
         """
-        category = await self.get_category(category_id)
-        if not category:
+        CategoryModel = await self.get_category(category_id)
+        if not CategoryModel:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Category not found"
+                detail="CategoryModel not found"
             )
         
         # Get product statistics for this category
@@ -604,7 +605,7 @@ class CategoryService:
             .join(Product.categories)
             .where(
                 and_(
-                    Category.id == category_id,
+                    CategoryModel.id == category_id,
                     Product.status == ProductStatus.ACTIVE
                 )
             )
@@ -623,7 +624,7 @@ class CategoryService:
             .join(Product.categories)
             .where(
                 and_(
-                    Category.id == category_id,
+                    CategoryModel.id == category_id,
                     Product.status == ProductStatus.ACTIVE
                 )
             )
@@ -631,22 +632,22 @@ class CategoryService:
         price_stats = price_stats_result.first()
         
         return CategoryStats(
-            id=str(category.id),
-            name=category.name,
-            product_count=category.product_count,
+            id=str(CategoryModel.id),
+            name=CategoryModel.name,
+            product_count=CategoryModel.product_count,
             active_product_count=active_product_count,
-            view_count=category.view_count,
+            view_count=CategoryModel.view_count,
             avg_product_price=price_stats[0],
             min_product_price=price_stats[1],
             max_product_price=price_stats[2],
             total_revenue=price_stats[3]
         )
     
-    def _build_category_tree_node(self, category: Category, category_dict: Dict[str, Category]) -> CategoryTree:
-        """Build a category tree node with children.
+    def _build_category_tree_node(self, CategoryModel: CategoryModel, category_dict: Dict[str, CategoryModel]) -> CategoryTree:
+        """Build a CategoryModel tree node with children.
         
         Args:
-            category: Category object
+            CategoryModel: CategoryModel object
             category_dict: Dictionary of all categories by ID
             
         Returns:
@@ -656,7 +657,7 @@ class CategoryService:
         
         # Find children of this category
         for cat_id, cat in category_dict.items():
-            if cat.parent_id == category.id:
+            if cat.parent_id == CategoryModel.id:
                 child_node = self._build_category_tree_node(cat, category_dict)
                 children.append(child_node)
         
@@ -664,12 +665,12 @@ class CategoryService:
         children.sort(key=lambda x: (x.display_order if hasattr(x, 'display_order') else 0, x.name))
         
         return CategoryTree(
-            id=str(category.id),
-            name=category.name,
-            slug=category.slug,
-            level=category.level,
-            product_count=category.product_count,
-            is_active=category.is_active,
+            id=str(CategoryModel.id),
+            name=CategoryModel.name,
+            slug=CategoryModel.slug,
+            level=CategoryModel.level,
+            product_count=CategoryModel.product_count,
+            is_active=CategoryModel.is_active,
             children=children
         )
     
@@ -677,7 +678,7 @@ class CategoryService:
         """Check if setting new parent would create circular reference.
         
         Args:
-            category_id: Category ID
+            category_id: CategoryModel ID
             new_parent_id: Proposed new parent ID
             
         Returns:
@@ -695,7 +696,7 @@ class CategoryService:
             
             # Get parent of current category
             result = await self.db.execute(
-                select(Category.parent_id).where(Category.id == current_id)
+                select(CategoryModel.parent_id).where(CategoryModel.id == current_id)
             )
             parent_result = result.scalar_one_or_none()
             current_id = str(parent_result) if parent_result else None
@@ -703,14 +704,14 @@ class CategoryService:
         return False
     
     async def _increment_view_count(self, category_id: str) -> None:
-        """Increment category view count.
+        """Increment CategoryModel view count.
         
         Args:
-            category_id: Category ID
+            category_id: CategoryModel ID
         """
         await self.db.execute(
-            update(Category)
-            .where(Category.id == category_id)
-            .values(view_count=Category.view_count + 1)
+            update(CategoryModel)
+            .where(CategoryModel.id == category_id)
+            .values(view_count=CategoryModel.view_count + 1)
         )
         await self.db.commit()

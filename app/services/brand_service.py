@@ -1,7 +1,7 @@
-"""Brand service for managing brand operations.
+"""BrandModel service for managing BrandModel operations.
 
-This module provides functionality for brand CRUD operations,
-brand analytics, and brand management.
+This module provides functionality for BrandModel CRUD operations,
+brand analytics, and BrandModel management.
 """
 
 from typing import Dict, List, Optional
@@ -11,8 +11,9 @@ from sqlalchemy import and_, desc, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.brand import Brand
+from app.models.brand import Brand as BrandModel
 from app.schemas.brand import (
+    Brand,
     BrandCreate,
     BrandUpdate,
     BrandBulkOperation,
@@ -24,41 +25,41 @@ from app.services.cache_service import CacheService
 
 
 class BrandService:
-    """Service for managing brand operations."""
+    """Service for managing BrandModel operations."""
     
     def __init__(self, db_session: AsyncSession, cache_service: Optional[CacheService] = None):
-        """Initialize brand service.
+        """Initialize BrandModel service.
         
         Args:
             db_session: Database session
-            cache_service: Cache service for storing brand data
+            cache_service: Cache service for storing BrandModel data
         """
         self.db = db_session
         self.cache = cache_service
     
-    async def create_brand(self, brand_data: BrandCreate, user_id: str) -> Brand:
-        """Create a new brand.
+    async def create_brand(self, brand_data: BrandCreate, user_id: str) -> BrandModel:
+        """Create a new BrandModel.
         
         Args:
-            brand_data: Brand creation data
+            brand_data: BrandModel creation data
             user_id: ID of user creating the brand
             
         Returns:
-            Created brand object
+            Created BrandModel object
             
         Raises:
-            HTTPException: If brand name already exists
+            HTTPException: If BrandModel name already exists
         """
-        # Check if brand name already exists
+        # Check if BrandModel name already exists
         existing_brand = await self._get_brand_by_name(brand_data.name)
         if existing_brand:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Brand with name '{brand_data.name}' already exists"
+                detail=f"BrandModel with name '{brand_data.name}' already exists"
             )
         
         # Create brand
-        brand = Brand(
+        BrandModel = BrandModel(
             name=brand_data.name,
             description=brand_data.description,
             website=str(brand_data.website) if brand_data.website else None,
@@ -80,25 +81,25 @@ class BrandService:
             created_by=user_id
         )
         
-        self.db.add(brand)
+        self.db.add(BrandModel)
         await self.db.commit()
-        await self.db.refresh(brand)
+        await self.db.refresh(BrandModel)
         
         # Cache brand
         if self.cache:
-            await self.cache.set_brand(brand)
+            await self.cache.set_brand(BrandModel)
         
         return brand
     
-    async def get_brand(self, brand_id: str, increment_view: bool = False) -> Optional[Brand]:
-        """Get brand by ID.
+    async def get_brand(self, brand_id: str, increment_view: bool = False) -> Optional[BrandModel]:
+        """Get BrandModel by ID.
         
         Args:
-            brand_id: Brand ID
+            brand_id: BrandModel ID
             increment_view: Whether to increment view count
             
         Returns:
-            Brand object or None if not found
+            BrandModel object or None if not found
         """
         # Try cache first
         if self.cache:
@@ -110,14 +111,14 @@ class BrandService:
         
         # Query database
         result = await self.db.execute(
-            select(Brand).where(Brand.id == brand_id)
+            select(BrandModel).where(BrandModel.id == brand_id)
         )
-        brand = result.scalar_one_or_none()
+        BrandModel = result.scalar_one_or_none()
         
-        if brand:
+        if BrandModel:
             # Cache brand
             if self.cache:
-                await self.cache.set_brand(brand)
+                await self.cache.set_brand(BrandModel)
             
             # Increment view count
             if increment_view:
@@ -125,58 +126,58 @@ class BrandService:
         
         return brand
     
-    async def get_brand_by_slug(self, slug: str, increment_view: bool = False) -> Optional[Brand]:
-        """Get brand by slug.
+    async def get_brand_by_slug(self, slug: str, increment_view: bool = False) -> Optional[BrandModel]:
+        """Get BrandModel by slug.
         
         Args:
-            slug: Brand slug
+            slug: BrandModel slug
             increment_view: Whether to increment view count
             
         Returns:
-            Brand object or None if not found
+            BrandModel object or None if not found
         """
         result = await self.db.execute(
-            select(Brand).where(Brand.slug == slug)
+            select(BrandModel).where(BrandModel.slug == slug)
         )
-        brand = result.scalar_one_or_none()
+        BrandModel = result.scalar_one_or_none()
         
-        if brand and increment_view:
-            await self._increment_view_count(str(brand.id))
+        if BrandModel and increment_view:
+            await self._increment_view_count(str(BrandModel.id))
         
         return brand
     
-    async def update_brand(self, brand_id: str, brand_data: BrandUpdate, user_id: str) -> Brand:
-        """Update an existing brand.
+    async def update_brand(self, brand_id: str, brand_data: BrandUpdate, user_id: str) -> BrandModel:
+        """Update an existing BrandModel.
         
         Args:
-            brand_id: Brand ID
-            brand_data: Brand update data
+            brand_id: BrandModel ID
+            brand_data: BrandModel update data
             user_id: ID of user updating the brand
             
         Returns:
-            Updated brand object
+            Updated BrandModel object
             
         Raises:
-            HTTPException: If brand not found or name conflict
+            HTTPException: If BrandModel not found or name conflict
         """
         # Get existing brand
-        brand = await self.get_brand(brand_id)
-        if not brand:
+        BrandModel = await self.get_brand(brand_id)
+        if not BrandModel:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Brand not found"
+                detail="BrandModel not found"
             )
         
         # Check name conflict if name is being updated
-        if brand_data.name and brand_data.name != brand.name:
+        if brand_data.name and brand_data.name != BrandModel.name:
             existing_brand = await self._get_brand_by_name(brand_data.name)
-            if existing_brand and existing_brand.id != brand.id:
+            if existing_brand and existing_brand.id != BrandModel.id:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Brand with name '{brand_data.name}' already exists"
+                    detail=f"BrandModel with name '{brand_data.name}' already exists"
                 )
         
-        # Update brand fields
+        # Update BrandModel fields
         update_data = brand_data.dict(exclude_unset=True)
         update_data['updated_by'] = user_id
         
@@ -185,10 +186,10 @@ class BrandService:
             update_data['website'] = str(update_data['website'])
         
         for field, value in update_data.items():
-            setattr(brand, field, value)
+            setattr(BrandModel, field, value)
         
         await self.db.commit()
-        await self.db.refresh(brand)
+        await self.db.refresh(BrandModel)
         
         # Clear cache
         if self.cache:
@@ -197,31 +198,31 @@ class BrandService:
         return brand
     
     async def delete_brand(self, brand_id: str, force: bool = False) -> None:
-        """Delete a brand.
+        """Delete a BrandModel.
         
         Args:
-            brand_id: Brand ID
-            force: Whether to force delete even if brand has products
+            brand_id: BrandModel ID
+            force: Whether to force delete even if BrandModel has products
             
         Raises:
-            HTTPException: If brand not found or has dependencies
+            HTTPException: If BrandModel not found or has dependencies
         """
-        brand = await self.get_brand(brand_id)
-        if not brand:
+        BrandModel = await self.get_brand(brand_id)
+        if not BrandModel:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Brand not found"
+                detail="BrandModel not found"
             )
         
         # Check for products
-        if brand.product_count > 0 and not force:
+        if BrandModel.product_count > 0 and not force:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Cannot delete brand with products. Use force=true or remove products first."
+                detail="Cannot delete BrandModel with products. Use force=true or remove products first."
             )
         
-        # If force delete, update products to remove brand reference
-        if force and brand.product_count > 0:
+        # If force delete, update products to remove BrandModel reference
+        if force and BrandModel.product_count > 0:
             from app.models.product import Product
             await self.db.execute(
                 update(Product)
@@ -230,7 +231,7 @@ class BrandService:
             )
         
         # Delete brand
-        await self.db.delete(brand)
+        await self.db.delete(BrandModel)
         await self.db.commit()
         
         # Clear cache
@@ -251,40 +252,40 @@ class BrandService:
             active_only: Whether to return only active brands
             featured_only: Whether to return only featured brands
             verified_only: Whether to return only verified brands
-            search_query: Search query for brand name or description
+            search_query: Search query for BrandModel name or description
             pagination: Pagination parameters
             
         Returns:
             Paginated response or list of brands
         """
         # Build query
-        query = select(Brand)
+        query = select(BrandModel)
         
         # Apply filters
         conditions = []
         
         if active_only:
-            conditions.append(Brand.is_active == True)
+            conditions.append(BrandModel.is_active == True)
         
         if featured_only:
-            conditions.append(Brand.is_featured == True)
+            conditions.append(BrandModel.is_featured == True)
         
         if verified_only:
-            conditions.append(Brand.is_verified == True)
+            conditions.append(BrandModel.is_verified == True)
         
         if search_query:
             search_term = f"%{search_query}%"
             conditions.append(
-                Brand.name.ilike(search_term) | 
-                Brand.description.ilike(search_term) |
-                Brand.company_name.ilike(search_term)
+                BrandModel.name.ilike(search_term) | 
+                BrandModel.description.ilike(search_term) |
+                BrandModel.company_name.ilike(search_term)
             )
         
         if conditions:
             query = query.where(and_(*conditions))
         
         # Apply ordering
-        query = query.order_by(Brand.display_order, desc(Brand.rating), Brand.name)
+        query = query.order_by(BrandModel.display_order, desc(BrandModel.rating), BrandModel.name)
         
         # Handle pagination
         if pagination:
@@ -312,7 +313,7 @@ class BrandService:
             result = await self.db.execute(query)
             return list(result.scalars().all())
     
-    async def get_featured_brands(self, limit: int = 10) -> List[Brand]:
+    async def get_featured_brands(self, limit: int = 10) -> List[BrandModel]:
         """Get featured brands.
         
         Args:
@@ -329,14 +330,14 @@ class BrandService:
         
         # Query database
         result = await self.db.execute(
-            select(Brand)
+            select(BrandModel)
             .where(
                 and_(
-                    Brand.is_featured == True,
-                    Brand.is_active == True
+                    BrandModel.is_featured == True,
+                    BrandModel.is_active == True
                 )
             )
-            .order_by(Brand.display_order, desc(Brand.rating), desc(Brand.product_count))
+            .order_by(BrandModel.display_order, desc(BrandModel.rating), desc(BrandModel.product_count))
             .limit(limit)
         )
         brands = result.scalars().all()
@@ -347,7 +348,7 @@ class BrandService:
         
         return list(brands)
     
-    async def get_top_brands(self, limit: int = 10, metric: str = "product_count") -> List[Brand]:
+    async def get_top_brands(self, limit: int = 10, metric: str = "product_count") -> List[BrandModel]:
         """Get top brands by specified metric.
         
         Args:
@@ -366,12 +367,12 @@ class BrandService:
             )
         
         # Build query
-        sort_column = getattr(Brand, metric)
+        sort_column = getattr(BrandModel, metric)
         
         result = await self.db.execute(
-            select(Brand)
-            .where(Brand.is_active == True)
-            .order_by(desc(sort_column), Brand.name)
+            select(BrandModel)
+            .where(BrandModel.is_active == True)
+            .order_by(desc(sort_column), BrandModel.name)
             .limit(limit)
         )
         
@@ -391,7 +392,7 @@ class BrandService:
         
         # Verify brands exist
         result = await self.db.execute(
-            select(func.count()).where(Brand.id.in_(brand_ids))
+            select(func.count()).where(BrandModel.id.in_(brand_ids))
         )
         existing_count = result.scalar()
         
@@ -404,38 +405,38 @@ class BrandService:
         # Perform operation
         if operation == "activate":
             await self.db.execute(
-                update(Brand)
-                .where(Brand.id.in_(brand_ids))
+                update(BrandModel)
+                .where(BrandModel.id.in_(brand_ids))
                 .values(is_active=True)
             )
         elif operation == "deactivate":
             await self.db.execute(
-                update(Brand)
-                .where(Brand.id.in_(brand_ids))
+                update(BrandModel)
+                .where(BrandModel.id.in_(brand_ids))
                 .values(is_active=False)
             )
         elif operation == "feature":
             await self.db.execute(
-                update(Brand)
-                .where(Brand.id.in_(brand_ids))
+                update(BrandModel)
+                .where(BrandModel.id.in_(brand_ids))
                 .values(is_featured=True)
             )
         elif operation == "unfeature":
             await self.db.execute(
-                update(Brand)
-                .where(Brand.id.in_(brand_ids))
+                update(BrandModel)
+                .where(BrandModel.id.in_(brand_ids))
                 .values(is_featured=False)
             )
         elif operation == "verify":
             await self.db.execute(
-                update(Brand)
-                .where(Brand.id.in_(brand_ids))
+                update(BrandModel)
+                .where(BrandModel.id.in_(brand_ids))
                 .values(is_verified=True)
             )
         elif operation == "unverify":
             await self.db.execute(
-                update(Brand)
-                .where(Brand.id.in_(brand_ids))
+                update(BrandModel)
+                .where(BrandModel.id.in_(brand_ids))
                 .values(is_verified=False)
             )
         elif operation == "delete":
@@ -444,8 +445,8 @@ class BrandService:
                 select(func.count())
                 .where(
                     and_(
-                        Brand.id.in_(brand_ids),
-                        Brand.product_count > 0
+                        BrandModel.id.in_(brand_ids),
+                        BrandModel.product_count > 0
                     )
                 )
             )
@@ -458,7 +459,7 @@ class BrandService:
             
             # Delete brands
             await self.db.execute(
-                Brand.__table__.delete().where(Brand.id.in_(brand_ids))
+                BrandModel.__table__.delete().where(BrandModel.id.in_(brand_ids))
             )
         
         await self.db.commit()
@@ -475,22 +476,22 @@ class BrandService:
         }
     
     async def get_brand_stats(self, brand_id: str) -> BrandStats:
-        """Get brand statistics.
+        """Get BrandModel statistics.
         
         Args:
-            brand_id: Brand ID
+            brand_id: BrandModel ID
             
         Returns:
-            Brand statistics
+            BrandModel statistics
             
         Raises:
-            HTTPException: If brand not found
+            HTTPException: If BrandModel not found
         """
-        brand = await self.get_brand(brand_id)
-        if not brand:
+        BrandModel = await self.get_brand(brand_id)
+        if not BrandModel:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Brand not found"
+                detail="BrandModel not found"
             )
         
         # Get product statistics for this brand
@@ -531,16 +532,16 @@ class BrandService:
             .where(Product.status == ProductStatus.ACTIVE)
         )
         total_products = total_products_result.scalar()
-        market_share = (brand.product_count / total_products * 100) if total_products > 0 else 0
+        market_share = (BrandModel.product_count / total_products * 100) if total_products > 0 else 0
         
         return BrandStats(
-            id=str(brand.id),
-            name=brand.name,
-            product_count=brand.product_count,
+            id=str(BrandModel.id),
+            name=BrandModel.name,
+            product_count=BrandModel.product_count,
             active_product_count=active_product_count,
-            view_count=brand.view_count,
-            rating=brand.rating,
-            review_count=brand.review_count,
+            view_count=BrandModel.view_count,
+            rating=BrandModel.rating,
+            review_count=BrandModel.review_count,
             avg_product_price=price_stats[0],
             min_product_price=price_stats[1],
             max_product_price=price_stats[2],
@@ -552,13 +553,13 @@ class BrandService:
         """Compare multiple brands.
         
         Args:
-            brand_ids: List of brand IDs to compare
+            brand_ids: List of BrandModel IDs to compare
             
         Returns:
-            Brand comparison data
+            BrandModel comparison data
             
         Raises:
-            HTTPException: If any brand not found
+            HTTPException: If any BrandModel not found
         """
         if len(brand_ids) < 2:
             raise HTTPException(
@@ -572,7 +573,7 @@ class BrandService:
                 detail="Maximum 5 brands allowed for comparison"
             )
         
-        # Get brand statistics for all brands
+        # Get BrandModel statistics for all brands
         brand_stats = []
         for brand_id in brand_ids:
             stats = await self.get_brand_stats(brand_id)
@@ -602,27 +603,27 @@ class BrandService:
         )
     
     async def update_brand_rating(self, brand_id: str, new_rating: float, review_count_delta: int = 1) -> None:
-        """Update brand rating and review count.
+        """Update BrandModel rating and review count.
         
         Args:
-            brand_id: Brand ID
+            brand_id: BrandModel ID
             new_rating: New rating to incorporate
             review_count_delta: Change in review count (default: 1)
         """
-        brand = await self.get_brand(brand_id)
-        if not brand:
+        BrandModel = await self.get_brand(brand_id)
+        if not BrandModel:
             return
         
         # Calculate new average rating
-        current_total = brand.rating * brand.review_count
+        current_total = BrandModel.rating * BrandModel.review_count
         new_total = current_total + new_rating
-        new_review_count = brand.review_count + review_count_delta
+        new_review_count = BrandModel.review_count + review_count_delta
         new_avg_rating = new_total / new_review_count if new_review_count > 0 else 0
         
         # Update brand
         await self.db.execute(
-            update(Brand)
-            .where(Brand.id == brand_id)
+            update(BrandModel)
+            .where(BrandModel.id == brand_id)
             .values(
                 rating=new_avg_rating,
                 review_count=new_review_count
@@ -634,29 +635,29 @@ class BrandService:
         if self.cache:
             await self.cache.delete_brand(brand_id)
     
-    async def _get_brand_by_name(self, name: str) -> Optional[Brand]:
-        """Get brand by name.
+    async def _get_brand_by_name(self, name: str) -> Optional[BrandModel]:
+        """Get BrandModel by name.
         
         Args:
-            name: Brand name
+            name: BrandModel name
             
         Returns:
-            Brand object or None if not found
+            BrandModel object or None if not found
         """
         result = await self.db.execute(
-            select(Brand).where(Brand.name.ilike(name))
+            select(BrandModel).where(BrandModel.name.ilike(name))
         )
         return result.scalar_one_or_none()
     
     async def _increment_view_count(self, brand_id: str) -> None:
-        """Increment brand view count.
+        """Increment BrandModel view count.
         
         Args:
-            brand_id: Brand ID
+            brand_id: BrandModel ID
         """
         await self.db.execute(
-            update(Brand)
-            .where(Brand.id == brand_id)
-            .values(view_count=Brand.view_count + 1)
+            update(BrandModel)
+            .where(BrandModel.id == brand_id)
+            .values(view_count=BrandModel.view_count + 1)
         )
         await self.db.commit()

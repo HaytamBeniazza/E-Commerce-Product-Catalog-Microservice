@@ -1,6 +1,6 @@
-"""Product service for managing product operations.
+"""ProductModel service for managing ProductModel operations.
 
-This module provides functionality for product CRUD operations,
+This module provides functionality for ProductModel CRUD operations,
 search, filtering, inventory management, and analytics.
 """
 
@@ -15,9 +15,10 @@ from sqlalchemy.orm import selectinload
 
 from app.models.brand import Brand
 from app.models.category import Category
-from app.models.product import Product, ProductImage, ProductStatus, ProductType
+from app.models.product import Product as ProductModel, ProductImage, ProductStatus, ProductType
 from app.schemas.common import PaginationParams, PaginatedResponse
 from app.schemas.product import (
+    Product,
     ProductCreate,
     ProductUpdate,
     ProductSearch,
@@ -28,27 +29,27 @@ from app.services.cache_service import CacheService
 
 
 class ProductService:
-    """Service for managing product operations."""
+    """Service for managing ProductModel operations."""
     
     def __init__(self, db_session: AsyncSession, cache_service: Optional[CacheService] = None):
-        """Initialize product service.
+        """Initialize ProductModel service.
         
         Args:
             db_session: Database session
-            cache_service: Cache service for storing product data
+            cache_service: Cache service for storing ProductModel data
         """
         self.db = db_session
         self.cache = cache_service
     
-    async def create_product(self, product_data: ProductCreate, user_id: str) -> Product:
-        """Create a new product.
+    async def create_product(self, product_data: ProductCreate, user_id: str) -> ProductModel:
+        """Create a new ProductModel.
         
         Args:
-            product_data: Product creation data
+            product_data: ProductModel creation data
             user_id: ID of user creating the product
             
         Returns:
-            Created product object
+            Created ProductModel object
             
         Raises:
             HTTPException: If SKU already exists or categories/brand not found
@@ -58,7 +59,7 @@ class ProductService:
         if existing_product:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Product with SKU '{product_data.sku}' already exists"
+                detail=f"ProductModel with SKU '{product_data.sku}' already exists"
             )
         
         # Validate categories exist
@@ -70,7 +71,7 @@ class ProductService:
             brand = await self._validate_brand(product_data.brand_id)
         
         # Create product
-        product = Product(
+        ProductModel = ProductModel(
             name=product_data.name,
             description=product_data.description,
             short_description=product_data.short_description,
@@ -101,16 +102,16 @@ class ProductService:
         )
         
         # Set categories
-        product.categories = categories
+        ProductModel.categories = categories
         
-        self.db.add(product)
-        await self.db.flush()  # Get product ID
+        self.db.add(ProductModel)
+        await self.db.flush()  # Get ProductModel ID
         
-        # Create product images
+        # Create ProductModel images
         if product_data.images:
             for img_data in product_data.images:
                 image = ProductImage(
-                    product_id=product.id,
+                    product_id=ProductModel.id,
                     url=img_data.url,
                     alt_text=img_data.alt_text,
                     display_order=img_data.display_order,
@@ -119,33 +120,33 @@ class ProductService:
                 self.db.add(image)
         
         await self.db.commit()
-        await self.db.refresh(product)
+        await self.db.refresh(ProductModel)
         
         # Load relationships
-        await self.db.refresh(product, ['categories', 'brand', 'images'])
+        await self.db.refresh(ProductModel, ['categories', 'brand', 'images'])
         
-        # Update category product counts
+        # Update category ProductModel counts
         await self._update_category_product_counts(product_data.category_ids, increment=True)
         
-        # Update brand product count
+        # Update brand ProductModel count
         if product_data.brand_id:
             await self._update_brand_product_count(product_data.brand_id, increment=True)
         
         # Cache product
         if self.cache:
-            await self.cache.set_product(product)
+            await self.cache.set_product(ProductModel)
         
         return product
     
-    async def get_product(self, product_id: str, increment_view: bool = True) -> Optional[Product]:
-        """Get product by ID.
+    async def get_product(self, product_id: str, increment_view: bool = True) -> Optional[ProductModel]:
+        """Get ProductModel by ID.
         
         Args:
-            product_id: Product ID
+            product_id: ProductModel ID
             increment_view: Whether to increment view count
             
         Returns:
-            Product object or None if not found
+            ProductModel object or None if not found
         """
         # Try cache first
         if self.cache:
@@ -157,20 +158,20 @@ class ProductService:
         
         # Query database
         result = await self.db.execute(
-            select(Product)
+            select(ProductModel)
             .options(
-                selectinload(Product.categories),
-                selectinload(Product.brand),
-                selectinload(Product.images)
+                selectinload(ProductModel.categories),
+                selectinload(ProductModel.brand),
+                selectinload(ProductModel.images)
             )
-            .where(Product.id == product_id)
+            .where(ProductModel.id == product_id)
         )
-        product = result.scalar_one_or_none()
+        ProductModel = result.scalar_one_or_none()
         
-        if product:
+        if ProductModel:
             # Cache product
             if self.cache:
-                await self.cache.set_product(product)
+                await self.cache.set_product(ProductModel)
             
             # Increment view count
             if increment_view:
@@ -178,65 +179,65 @@ class ProductService:
         
         return product
     
-    async def get_product_by_slug(self, slug: str, increment_view: bool = True) -> Optional[Product]:
-        """Get product by slug.
+    async def get_product_by_slug(self, slug: str, increment_view: bool = True) -> Optional[ProductModel]:
+        """Get ProductModel by slug.
         
         Args:
-            slug: Product slug
+            slug: ProductModel slug
             increment_view: Whether to increment view count
             
         Returns:
-            Product object or None if not found
+            ProductModel object or None if not found
         """
         result = await self.db.execute(
-            select(Product)
+            select(ProductModel)
             .options(
-                selectinload(Product.categories),
-                selectinload(Product.brand),
-                selectinload(Product.images)
+                selectinload(ProductModel.categories),
+                selectinload(ProductModel.brand),
+                selectinload(ProductModel.images)
             )
-            .where(Product.slug == slug)
+            .where(ProductModel.slug == slug)
         )
-        product = result.scalar_one_or_none()
+        ProductModel = result.scalar_one_or_none()
         
-        if product and increment_view:
-            await self._increment_view_count(str(product.id))
+        if ProductModel and increment_view:
+            await self._increment_view_count(str(ProductModel.id))
         
         return product
     
-    async def update_product(self, product_id: str, product_data: ProductUpdate, user_id: str) -> Product:
-        """Update an existing product.
+    async def update_product(self, product_id: str, product_data: ProductUpdate, user_id: str) -> ProductModel:
+        """Update an existing ProductModel.
         
         Args:
-            product_id: Product ID
-            product_data: Product update data
+            product_id: ProductModel ID
+            product_data: ProductModel update data
             user_id: ID of user updating the product
             
         Returns:
-            Updated product object
+            Updated ProductModel object
             
         Raises:
-            HTTPException: If product not found or SKU conflict
+            HTTPException: If ProductModel not found or SKU conflict
         """
         # Get existing product
-        product = await self.get_product(product_id, increment_view=False)
-        if not product:
+        ProductModel = await self.get_product(product_id, increment_view=False)
+        if not ProductModel:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Product not found"
+                detail="ProductModel not found"
             )
         
         # Check SKU conflict if SKU is being updated
-        if product_data.sku and product_data.sku != product.sku:
+        if product_data.sku and product_data.sku != ProductModel.sku:
             existing_product = await self._get_product_by_sku(product_data.sku)
-            if existing_product and existing_product.id != product.id:
+            if existing_product and existing_product.id != ProductModel.id:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Product with SKU '{product_data.sku}' already exists"
+                    detail=f"ProductModel with SKU '{product_data.sku}' already exists"
                 )
         
         # Validate categories if being updated
-        old_category_ids = [str(cat.id) for cat in product.categories]
+        old_category_ids = [str(cat.id) for cat in ProductModel.categories]
         new_categories = None
         if product_data.category_ids is not None:
             new_categories = await self._validate_categories(product_data.category_ids)
@@ -246,21 +247,21 @@ class ProductService:
             if product_data.brand_id:
                 await self._validate_brand(product_data.brand_id)
         
-        # Update product fields
+        # Update ProductModel fields
         update_data = product_data.dict(exclude_unset=True, exclude={'category_ids'})
         update_data['updated_by'] = user_id
         
         for field, value in update_data.items():
-            setattr(product, field, value)
+            setattr(ProductModel, field, value)
         
         # Update categories if provided
         if new_categories is not None:
-            product.categories = new_categories
+            ProductModel.categories = new_categories
         
         await self.db.commit()
-        await self.db.refresh(product, ['categories', 'brand', 'images'])
+        await self.db.refresh(ProductModel, ['categories', 'brand', 'images'])
         
-        # Update category product counts
+        # Update category ProductModel counts
         if product_data.category_ids is not None:
             new_category_ids = product_data.category_ids
             
@@ -274,9 +275,9 @@ class ProductService:
             if added_categories:
                 await self._update_category_product_counts(list(added_categories), increment=True)
         
-        # Update brand product count
+        # Update brand ProductModel count
         if product_data.brand_id is not None:
-            old_brand_id = str(product.brand_id) if product.brand_id else None
+            old_brand_id = str(ProductModel.brand_id) if ProductModel.brand_id else None
             new_brand_id = product_data.brand_id
             
             if old_brand_id != new_brand_id:
@@ -292,34 +293,34 @@ class ProductService:
         return product
     
     async def delete_product(self, product_id: str) -> None:
-        """Delete a product.
+        """Delete a ProductModel.
         
         Args:
-            product_id: Product ID
+            product_id: ProductModel ID
             
         Raises:
-            HTTPException: If product not found
+            HTTPException: If ProductModel not found
         """
-        product = await self.get_product(product_id, increment_view=False)
-        if not product:
+        ProductModel = await self.get_product(product_id, increment_view=False)
+        if not ProductModel:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Product not found"
+                detail="ProductModel not found"
             )
         
         # Get category and brand IDs for count updates
-        category_ids = [str(cat.id) for cat in product.categories]
-        brand_id = str(product.brand_id) if product.brand_id else None
+        category_ids = [str(cat.id) for cat in ProductModel.categories]
+        brand_id = str(ProductModel.brand_id) if ProductModel.brand_id else None
         
-        # Delete product (cascade will handle images)
-        await self.db.delete(product)
+        # Delete ProductModel (cascade will handle images)
+        await self.db.delete(ProductModel)
         await self.db.commit()
         
-        # Update category product counts
+        # Update category ProductModel counts
         if category_ids:
             await self._update_category_product_counts(category_ids, increment=False)
         
-        # Update brand product count
+        # Update brand ProductModel count
         if brand_id:
             await self._update_brand_product_count(brand_id, increment=False)
         
@@ -342,10 +343,10 @@ class ProductService:
             Paginated response with products
         """
         # Build base query
-        query = select(Product).options(
-            selectinload(Product.categories),
-            selectinload(Product.brand),
-            selectinload(Product.images)
+        query = select(ProductModel).options(
+            selectinload(ProductModel.categories),
+            selectinload(ProductModel.brand),
+            selectinload(ProductModel.images)
         )
         
         # Apply filters
@@ -356,56 +357,56 @@ class ProductService:
             search_term = f"%{search_params.query}%"
             conditions.append(
                 or_(
-                    Product.name.ilike(search_term),
-                    Product.description.ilike(search_term),
-                    Product.short_description.ilike(search_term),
-                    Product.sku.ilike(search_term),
-                    Product.tags.contains([search_params.query.lower()])
+                    ProductModel.name.ilike(search_term),
+                    ProductModel.description.ilike(search_term),
+                    ProductModel.short_description.ilike(search_term),
+                    ProductModel.sku.ilike(search_term),
+                    ProductModel.tags.contains([search_params.query.lower()])
                 )
             )
         
         # Category filter
         if search_params.category_ids:
-            conditions.append(Product.categories.any(Category.id.in_(search_params.category_ids)))
+            conditions.append(ProductModel.categories.any(Category.id.in_(search_params.category_ids)))
         
         # Brand filter
         if search_params.brand_ids:
-            conditions.append(Product.brand_id.in_(search_params.brand_ids))
+            conditions.append(ProductModel.brand_id.in_(search_params.brand_ids))
         
         # Price range filter
         if search_params.min_price is not None:
-            conditions.append(Product.price >= search_params.min_price)
+            conditions.append(ProductModel.price >= search_params.min_price)
         if search_params.max_price is not None:
-            conditions.append(Product.price <= search_params.max_price)
+            conditions.append(ProductModel.price <= search_params.max_price)
         
         # Stock filter
         if search_params.in_stock_only:
-            conditions.append(Product.stock_quantity > 0)
+            conditions.append(ProductModel.stock_quantity > 0)
         
         # Featured filter
         if search_params.featured_only:
-            conditions.append(Product.is_featured == True)
+            conditions.append(ProductModel.is_featured == True)
         
         # Status filter
         if search_params.status:
-            conditions.append(Product.status == search_params.status)
+            conditions.append(ProductModel.status == search_params.status)
         
         # Tags filter
         if search_params.tags:
             for tag in search_params.tags:
-                conditions.append(Product.tags.contains([tag.lower()]))
+                conditions.append(ProductModel.tags.contains([tag.lower()]))
         
         # Attributes filter
         if search_params.attributes:
             for key, value in search_params.attributes.items():
-                conditions.append(Product.attributes[key].astext == value)
+                conditions.append(ProductModel.attributes[key].astext == value)
         
         # Apply conditions
         if conditions:
             query = query.where(and_(*conditions))
         
         # Apply sorting
-        sort_column = getattr(Product, search_params.sort_by, Product.created_at)
+        sort_column = getattr(ProductModel, search_params.sort_by, ProductModel.created_at)
         if search_params.sort_order == "desc":
             query = query.order_by(desc(sort_column))
         else:
@@ -431,7 +432,7 @@ class ProductService:
             pages=pagination.get_total_pages(total)
         )
     
-    async def get_featured_products(self, limit: int = 10) -> List[Product]:
+    async def get_featured_products(self, limit: int = 10) -> List[ProductModel]:
         """Get featured products.
         
         Args:
@@ -448,19 +449,19 @@ class ProductService:
         
         # Query database
         result = await self.db.execute(
-            select(Product)
+            select(ProductModel)
             .options(
-                selectinload(Product.categories),
-                selectinload(Product.brand),
-                selectinload(Product.images)
+                selectinload(ProductModel.categories),
+                selectinload(ProductModel.brand),
+                selectinload(ProductModel.images)
             )
             .where(
                 and_(
-                    Product.is_featured == True,
-                    Product.status == ProductStatus.ACTIVE
+                    ProductModel.is_featured == True,
+                    ProductModel.status == ProductStatus.ACTIVE
                 )
             )
-            .order_by(desc(Product.rating), desc(Product.created_at))
+            .order_by(desc(ProductModel.rating), desc(ProductModel.created_at))
             .limit(limit)
         )
         products = result.scalars().all()
@@ -471,49 +472,49 @@ class ProductService:
         
         return list(products)
     
-    async def get_related_products(self, product_id: str, limit: int = 5) -> List[Product]:
-        """Get products related to a given product.
+    async def get_related_products(self, product_id: str, limit: int = 5) -> List[ProductModel]:
+        """Get products related to a given ProductModel.
         
         Args:
-            product_id: Product ID
+            product_id: ProductModel ID
             limit: Maximum number of related products
             
         Returns:
             List of related products
         """
-        product = await self.get_product(product_id, increment_view=False)
-        if not product:
+        ProductModel = await self.get_product(product_id, increment_view=False)
+        if not ProductModel:
             return []
         
         # Get products from same categories or brand
-        category_ids = [str(cat.id) for cat in product.categories]
+        category_ids = [str(cat.id) for cat in ProductModel.categories]
         
-        conditions = [Product.id != product_id, Product.status == ProductStatus.ACTIVE]
+        conditions = [ProductModel.id != product_id, ProductModel.status == ProductStatus.ACTIVE]
         
         if category_ids:
-            conditions.append(Product.categories.any(Category.id.in_(category_ids)))
-        elif product.brand_id:
-            conditions.append(Product.brand_id == product.brand_id)
+            conditions.append(ProductModel.categories.any(Category.id.in_(category_ids)))
+        elif ProductModel.brand_id:
+            conditions.append(ProductModel.brand_id == ProductModel.brand_id)
         
         result = await self.db.execute(
-            select(Product)
+            select(ProductModel)
             .options(
-                selectinload(Product.categories),
-                selectinload(Product.brand),
-                selectinload(Product.images)
+                selectinload(ProductModel.categories),
+                selectinload(ProductModel.brand),
+                selectinload(ProductModel.images)
             )
             .where(and_(*conditions))
-            .order_by(desc(Product.rating), desc(Product.view_count))
+            .order_by(desc(ProductModel.rating), desc(ProductModel.view_count))
             .limit(limit)
         )
         
         return list(result.scalars().all())
     
-    async def update_stock(self, product_id: str, quantity: int, operation: str = "set") -> Product:
-        """Update product stock quantity.
+    async def update_stock(self, product_id: str, quantity: int, operation: str = "set") -> ProductModel:
+        """Update ProductModel stock quantity.
         
         Args:
-            product_id: Product ID
+            product_id: ProductModel ID
             quantity: Quantity to set/add/subtract
             operation: Operation type (set, add, subtract)
             
@@ -521,21 +522,21 @@ class ProductService:
             Updated product
             
         Raises:
-            HTTPException: If product not found or invalid operation
+            HTTPException: If ProductModel not found or invalid operation
         """
-        product = await self.get_product(product_id, increment_view=False)
-        if not product:
+        ProductModel = await self.get_product(product_id, increment_view=False)
+        if not ProductModel:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Product not found"
+                detail="ProductModel not found"
             )
         
         if operation == "set":
             new_quantity = quantity
         elif operation == "add":
-            new_quantity = product.stock_quantity + quantity
+            new_quantity = ProductModel.stock_quantity + quantity
         elif operation == "subtract":
-            new_quantity = product.stock_quantity - quantity
+            new_quantity = ProductModel.stock_quantity - quantity
         else:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -549,8 +550,8 @@ class ProductService:
             )
         
         await self.db.execute(
-            update(Product)
-            .where(Product.id == product_id)
+            update(ProductModel)
+            .where(ProductModel.id == product_id)
             .values(stock_quantity=new_quantity)
         )
         await self.db.commit()
@@ -576,7 +577,7 @@ class ProductService:
         
         # Verify products exist
         result = await self.db.execute(
-            select(func.count()).where(Product.id.in_(product_ids))
+            select(func.count()).where(ProductModel.id.in_(product_ids))
         )
         existing_count = result.scalar()
         
@@ -589,26 +590,26 @@ class ProductService:
         # Perform operation
         if operation == "activate":
             await self.db.execute(
-                update(Product)
-                .where(Product.id.in_(product_ids))
+                update(ProductModel)
+                .where(ProductModel.id.in_(product_ids))
                 .values(status=ProductStatus.ACTIVE)
             )
         elif operation == "deactivate":
             await self.db.execute(
-                update(Product)
-                .where(Product.id.in_(product_ids))
+                update(ProductModel)
+                .where(ProductModel.id.in_(product_ids))
                 .values(status=ProductStatus.INACTIVE)
             )
         elif operation == "feature":
             await self.db.execute(
-                update(Product)
-                .where(Product.id.in_(product_ids))
+                update(ProductModel)
+                .where(ProductModel.id.in_(product_ids))
                 .values(is_featured=True)
             )
         elif operation == "unfeature":
             await self.db.execute(
-                update(Product)
-                .where(Product.id.in_(product_ids))
+                update(ProductModel)
+                .where(ProductModel.id.in_(product_ids))
                 .values(is_featured=False)
             )
         elif operation == "update_stock":
@@ -619,8 +620,8 @@ class ProductService:
                     detail="stock_quantity required for update_stock operation"
                 )
             await self.db.execute(
-                update(Product)
-                .where(Product.id.in_(product_ids))
+                update(ProductModel)
+                .where(ProductModel.id.in_(product_ids))
                 .values(stock_quantity=stock_quantity)
             )
         elif operation == "update_price":
@@ -631,21 +632,21 @@ class ProductService:
                     detail="price required for update_price operation"
                 )
             await self.db.execute(
-                update(Product)
-                .where(Product.id.in_(product_ids))
+                update(ProductModel)
+                .where(ProductModel.id.in_(product_ids))
                 .values(price=price)
             )
         elif operation == "delete":
             # Get category and brand info before deletion
             products_info = await self.db.execute(
-                select(Product.id, Product.brand_id)
-                .options(selectinload(Product.categories))
-                .where(Product.id.in_(product_ids))
+                select(ProductModel.id, ProductModel.brand_id)
+                .options(selectinload(ProductModel.categories))
+                .where(ProductModel.id.in_(product_ids))
             )
             
             # Delete products
             await self.db.execute(
-                Product.__table__.delete().where(Product.id.in_(product_ids))
+                ProductModel.__table__.delete().where(ProductModel.id.in_(product_ids))
             )
         
         await self.db.commit()
@@ -662,61 +663,61 @@ class ProductService:
         }
     
     async def get_product_stats(self, product_id: str) -> ProductStats:
-        """Get product statistics.
+        """Get ProductModel statistics.
         
         Args:
-            product_id: Product ID
+            product_id: ProductModel ID
             
         Returns:
-            Product statistics
+            ProductModel statistics
             
         Raises:
-            HTTPException: If product not found
+            HTTPException: If ProductModel not found
         """
-        product = await self.get_product(product_id, increment_view=False)
-        if not product:
+        ProductModel = await self.get_product(product_id, increment_view=False)
+        if not ProductModel:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Product not found"
+                detail="ProductModel not found"
             )
         
         # Calculate derived metrics
-        revenue = product.price * product.sales_count
+        revenue = ProductModel.price * ProductModel.sales_count
         profit = None
         profit_margin = None
         
-        if product.cost_price:
-            profit = (product.price - product.cost_price) * product.sales_count
-            profit_margin = ((product.price - product.cost_price) / product.price) * 100
+        if ProductModel.cost_price:
+            profit = (ProductModel.price - ProductModel.cost_price) * ProductModel.sales_count
+            profit_margin = ((ProductModel.price - ProductModel.cost_price) / ProductModel.price) * 100
         
         conversion_rate = 0.0
-        if product.view_count > 0:
-            conversion_rate = (product.sales_count / product.view_count) * 100
+        if ProductModel.view_count > 0:
+            conversion_rate = (ProductModel.sales_count / ProductModel.view_count) * 100
         
         return ProductStats(
-            id=str(product.id),
-            name=product.name,
-            view_count=product.view_count,
-            sales_count=product.sales_count,
+            id=str(ProductModel.id),
+            name=ProductModel.name,
+            view_count=ProductModel.view_count,
+            sales_count=ProductModel.sales_count,
             revenue=revenue,
-            rating=product.rating,
-            review_count=product.review_count,
+            rating=ProductModel.rating,
+            review_count=ProductModel.review_count,
             conversion_rate=conversion_rate,
             profit=profit,
             profit_margin=profit_margin
         )
     
-    async def _get_product_by_sku(self, sku: str) -> Optional[Product]:
-        """Get product by SKU.
+    async def _get_product_by_sku(self, sku: str) -> Optional[ProductModel]:
+        """Get ProductModel by SKU.
         
         Args:
-            sku: Product SKU
+            sku: ProductModel SKU
             
         Returns:
-            Product object or None if not found
+            ProductModel object or None if not found
         """
         result = await self.db.execute(
-            select(Product).where(Product.sku == sku.upper())
+            select(ProductModel).where(ProductModel.sku == sku.upper())
         )
         return result.scalar_one_or_none()
     
@@ -773,20 +774,20 @@ class ProductService:
         return brand
     
     async def _increment_view_count(self, product_id: str) -> None:
-        """Increment product view count.
+        """Increment ProductModel view count.
         
         Args:
-            product_id: Product ID
+            product_id: ProductModel ID
         """
         await self.db.execute(
-            update(Product)
-            .where(Product.id == product_id)
-            .values(view_count=Product.view_count + 1)
+            update(ProductModel)
+            .where(ProductModel.id == product_id)
+            .values(view_count=ProductModel.view_count + 1)
         )
         await self.db.commit()
     
     async def _update_category_product_counts(self, category_ids: List[str], increment: bool = True) -> None:
-        """Update product counts for categories.
+        """Update ProductModel counts for categories.
         
         Args:
             category_ids: List of category IDs
@@ -807,7 +808,7 @@ class ProductService:
         await self.db.commit()
     
     async def _update_brand_product_count(self, brand_id: str, increment: bool = True) -> None:
-        """Update product count for brand.
+        """Update ProductModel count for brand.
         
         Args:
             brand_id: Brand ID
