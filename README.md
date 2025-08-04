@@ -41,7 +41,7 @@ This microservice follows a layered architecture pattern:
 
 ```
 ┌─────────────────┐
-│   API Layer    │  (FastAPI endpoints, request/response handling)
+│   API Layer     │  (FastAPI endpoints, request/response handling)
 ├─────────────────┤
 │ Service Layer   │  (Business logic, data processing)
 ├─────────────────┤
