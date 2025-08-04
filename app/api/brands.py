@@ -18,7 +18,7 @@ from app.dependencies import (
     get_pagination_params,
     get_search_params
 )
-from app.models.user import User
+from app.models.user import User as UserModel
 from app.schemas.common import (
     SuccessResponse,
     PaginationParams,
@@ -50,7 +50,7 @@ router = APIRouter(prefix="/brands", tags=["Brands"])
 )
 async def create_brand(
     brand_data: BrandCreate,
-    current_user: User = Depends(get_seller_user),
+    current_user: UserModel = Depends(get_seller_user),
     db: AsyncSession = Depends(get_db_session),
     cache: CacheService = Depends(get_cache_service)
 ) -> Brand:
@@ -282,7 +282,7 @@ async def get_brand_by_slug(
 async def update_brand(
     brand_id: str,
     brand_data: BrandUpdate,
-    current_user: User = Depends(get_seller_user),
+    current_user: UserModel = Depends(get_seller_user),
     db: AsyncSession = Depends(get_db_session),
     cache: CacheService = Depends(get_cache_service)
 ) -> Brand:
@@ -326,7 +326,7 @@ async def update_brand(
 async def delete_brand(
     brand_id: str,
     force: bool = Query(False, description="Force delete even if brand has products"),
-    current_user: User = Depends(get_admin_user),
+    current_user: UserModel = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db_session),
     cache: CacheService = Depends(get_cache_service)
 ) -> SuccessResponse:
@@ -369,7 +369,7 @@ async def delete_brand(
 )
 async def bulk_brand_operations(
     operation_data: BrandBulkOperation,
-    current_user: User = Depends(get_admin_user),
+    current_user: UserModel = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db_session),
     cache: CacheService = Depends(get_cache_service)
 ) -> SuccessResponse:
@@ -411,7 +411,7 @@ async def bulk_brand_operations(
 )
 async def get_brand_stats(
     brand_id: str,
-    current_user: User = Depends(get_current_active_user),
+    current_user: UserModel = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db_session),
     cache: CacheService = Depends(get_cache_service)
 ) -> BrandStats:
@@ -449,7 +449,7 @@ async def get_brand_stats(
 )
 async def compare_brands(
     brand_ids: List[str] = Query(..., min_items=2, max_items=5, description="Brand IDs to compare"),
-    current_user: User = Depends(get_current_active_user),
+    current_user: UserModel = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db_session),
     cache: CacheService = Depends(get_cache_service)
 ) -> BrandComparison:
@@ -489,7 +489,7 @@ async def update_brand_rating(
     brand_id: str,
     rating: float = Query(..., ge=0, le=5, description="New rating value"),
     review_count_delta: int = Query(1, description="Change in review count"),
-    current_user: User = Depends(get_admin_user),
+    current_user: UserModel = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db_session),
     cache: CacheService = Depends(get_cache_service)
 ) -> SuccessResponse:

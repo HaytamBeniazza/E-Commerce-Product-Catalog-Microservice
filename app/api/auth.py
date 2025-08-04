@@ -18,9 +18,10 @@ from app.dependencies import (
     get_current_user,
     get_current_active_user
 )
-from app.models.user import User
+from app.models.user import User as UserModel
 from app.schemas.common import SuccessResponse
 from app.schemas.user import (
+    User,
     UserCreate,
     UserLogin,
     UserResponse,
@@ -178,7 +179,7 @@ async def refresh_token(
     description="Logout user and invalidate tokens"
 )
 async def logout(
-    current_user: User = Depends(get_current_active_user),
+    current_user: UserModel = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db_session),
     cache: CacheService = Depends(get_cache_service)
 ) -> SuccessResponse:
@@ -208,7 +209,7 @@ async def logout(
     description="Get current authenticated user information"
 )
 async def get_current_user_info(
-    current_user: User = Depends(get_current_active_user)
+    current_user: UserModel = Depends(get_current_active_user)
 ) -> User:
     """Get current user information.
     
@@ -229,7 +230,7 @@ async def get_current_user_info(
 )
 async def update_current_user(
     user_data: UserUpdate,
-    current_user: User = Depends(get_current_active_user),
+    current_user: UserModel = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db_session),
     cache: CacheService = Depends(get_cache_service)
 ) -> User:
@@ -270,7 +271,7 @@ async def update_current_user(
 )
 async def change_password(
     password_data: UserPasswordChange,
-    current_user: User = Depends(get_current_active_user),
+    current_user: UserModel = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db_session),
     cache: CacheService = Depends(get_cache_service)
 ) -> SuccessResponse:
@@ -439,7 +440,7 @@ async def verify_email(
     description="Resend email verification link"
 )
 async def resend_verification(
-    current_user: User = Depends(get_current_user),
+    current_user: UserModel = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
     cache: CacheService = Depends(get_cache_service)
 ) -> SuccessResponse:

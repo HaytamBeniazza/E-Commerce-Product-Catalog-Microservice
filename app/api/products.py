@@ -19,7 +19,7 @@ from app.dependencies import (
     get_pagination_params,
     get_search_params
 )
-from app.models.user import User
+from app.models.user import User as UserModel
 from app.schemas.common import (
     SuccessResponse,
     PaginationParams,
@@ -54,7 +54,7 @@ router = APIRouter(prefix="/products", tags=["Products"])
 )
 async def create_product(
     product_data: ProductCreate,
-    current_user: User = Depends(get_seller_user),
+    current_user: UserModel = Depends(get_seller_user),
     db: AsyncSession = Depends(get_db_session),
     cache: CacheService = Depends(get_cache_service)
 ) -> Product:
@@ -320,7 +320,7 @@ async def get_product_by_slug(
 async def update_product(
     product_id: str,
     product_data: ProductUpdate,
-    current_user: User = Depends(get_seller_user),
+    current_user: UserModel = Depends(get_seller_user),
     db: AsyncSession = Depends(get_db_session),
     cache: CacheService = Depends(get_cache_service)
 ) -> Product:
@@ -368,7 +368,7 @@ async def update_product(
 )
 async def delete_product(
     product_id: str,
-    current_user: User = Depends(get_seller_user),
+    current_user: UserModel = Depends(get_seller_user),
     db: AsyncSession = Depends(get_db_session),
     cache: CacheService = Depends(get_cache_service)
 ) -> SuccessResponse:
@@ -418,7 +418,7 @@ async def delete_product(
 )
 async def bulk_product_operations(
     operation_data: ProductBulkOperation,
-    current_user: User = Depends(get_admin_user),
+    current_user: UserModel = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db_session),
     cache: CacheService = Depends(get_cache_service)
 ) -> SuccessResponse:
@@ -462,7 +462,7 @@ async def update_product_stock(
     product_id: str,
     quantity: int = Query(..., description="New stock quantity"),
     operation: str = Query("set", description="Operation: set, add, subtract"),
-    current_user: User = Depends(get_seller_user),
+    current_user: UserModel = Depends(get_seller_user),
     db: AsyncSession = Depends(get_db_session),
     cache: CacheService = Depends(get_cache_service)
 ) -> SuccessResponse:
@@ -515,7 +515,7 @@ async def update_product_stock(
 )
 async def get_product_stats(
     product_id: str,
-    current_user: User = Depends(get_seller_user),
+    current_user: UserModel = Depends(get_seller_user),
     db: AsyncSession = Depends(get_db_session),
     cache: CacheService = Depends(get_cache_service)
 ) -> ProductStats:
@@ -556,7 +556,7 @@ async def get_product_stats(
 async def add_product_image(
     product_id: str,
     image_data: ProductImageCreate,
-    current_user: User = Depends(get_seller_user),
+    current_user: UserModel = Depends(get_seller_user),
     db: AsyncSession = Depends(get_db_session),
     cache: CacheService = Depends(get_cache_service)
 ) -> ProductImage:
@@ -600,7 +600,7 @@ async def update_product_image(
     product_id: str,
     image_id: str,
     image_data: ProductImageUpdate,
-    current_user: User = Depends(get_seller_user),
+    current_user: UserModel = Depends(get_seller_user),
     db: AsyncSession = Depends(get_db_session),
     cache: CacheService = Depends(get_cache_service)
 ) -> ProductImage:
@@ -645,7 +645,7 @@ async def update_product_image(
 async def delete_product_image(
     product_id: str,
     image_id: str,
-    current_user: User = Depends(get_seller_user),
+    current_user: UserModel = Depends(get_seller_user),
     db: AsyncSession = Depends(get_db_session),
     cache: CacheService = Depends(get_cache_service)
 ) -> SuccessResponse:

@@ -18,7 +18,7 @@ from app.dependencies import (
     get_pagination_params,
     get_search_params
 )
-from app.models.user import User
+from app.models.user import User as UserModel
 from app.schemas.common import (
     SuccessResponse,
     PaginationParams,
@@ -53,7 +53,7 @@ router = APIRouter(prefix="/categories", tags=["Categories"])
 )
 async def create_category(
     category_data: CategoryCreate,
-    current_user: User = Depends(get_admin_user),
+    current_user: UserModel = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db_session),
     cache: CacheService = Depends(get_cache_service)
 ) -> Category:
@@ -348,7 +348,7 @@ async def get_category_breadcrumbs(
 async def update_category(
     category_id: str,
     category_data: CategoryUpdate,
-    current_user: User = Depends(get_admin_user),
+    current_user: UserModel = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db_session),
     cache: CacheService = Depends(get_cache_service)
 ) -> Category:
@@ -392,7 +392,7 @@ async def update_category(
 async def move_category(
     category_id: str,
     move_data: CategoryMove,
-    current_user: User = Depends(get_admin_user),
+    current_user: UserModel = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db_session),
     cache: CacheService = Depends(get_cache_service)
 ) -> Category:
@@ -436,7 +436,7 @@ async def move_category(
 async def delete_category(
     category_id: str,
     force: bool = Query(False, description="Force delete even if category has products or children"),
-    current_user: User = Depends(get_admin_user),
+    current_user: UserModel = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db_session),
     cache: CacheService = Depends(get_cache_service)
 ) -> SuccessResponse:
@@ -479,7 +479,7 @@ async def delete_category(
 )
 async def bulk_category_operations(
     operation_data: CategoryBulkOperation,
-    current_user: User = Depends(get_admin_user),
+    current_user: UserModel = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db_session),
     cache: CacheService = Depends(get_cache_service)
 ) -> SuccessResponse:
@@ -522,7 +522,7 @@ async def bulk_category_operations(
 async def get_category_stats(
     category_id: str,
     include_children: bool = Query(True, description="Include statistics from child categories"),
-    current_user: User = Depends(get_current_active_user),
+    current_user: UserModel = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db_session),
     cache: CacheService = Depends(get_cache_service)
 ) -> CategoryStats:
