@@ -16,6 +16,22 @@ from app.config import Settings, get_settings
 from app.database.connection import get_db_session
 from app.services.cache_service import CacheService, get_cache_service
 
+# Re-export commonly used dependencies
+__all__ = [
+    "get_db_session",
+    "get_cache_service", 
+    "get_current_user",
+    "get_current_user_optional",
+    "get_current_active_user",
+    "get_admin_user",
+    "get_seller_user",
+    "get_pagination_params",
+    "get_search_params",
+    "check_dependencies_health",
+    "PaginationParams",
+    "SearchParams"
+]
+
 logger = logging.getLogger(__name__)
 
 # Security scheme for JWT authentication
@@ -139,7 +155,7 @@ async def get_current_user(
         )
 
 
-async def get_current_admin_user(
+async def get_admin_user(
     current_user: dict = Depends(get_current_user)
 ) -> dict:
     """Get current admin user.
@@ -164,7 +180,7 @@ async def get_current_admin_user(
     return current_user
 
 
-async def get_current_seller_user(
+async def get_seller_user(
     current_user: dict = Depends(get_current_user)
 ) -> dict:
     """Get current seller user.
@@ -185,6 +201,33 @@ async def get_current_seller_user(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Seller privileges required"
+        )
+    
+    return current_user
+
+
+async def get_current_active_user(
+    current_user: dict = Depends(get_current_user)
+) -> dict:
+    """Get current active user.
+    
+    This dependency ensures the current user is authenticated and active.
+    It's an alias for get_current_user but checks for active status.
+    
+    Args:
+        current_user: Current authenticated user
+        
+    Returns:
+        Active user data
+        
+    Raises:
+        HTTPException: If user is not active
+    """
+    # Check if user is active (assuming active field exists)
+    if not current_user.get("is_active", True):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account is not active"
         )
     
     return current_user

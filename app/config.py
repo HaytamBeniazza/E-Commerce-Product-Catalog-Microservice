@@ -40,7 +40,8 @@ class Settings(BaseSettings):
     def assemble_db_connection(cls, v: Optional[str], values: Dict[str, Any]) -> Any:
         if isinstance(v, str):
             return v
-        return "postgresql+asyncpg://ecommerce_user:ecommerce_password@localhost:5432/ecommerce_db"
+        # Use psycopg2 with asyncio instead of asyncpg to avoid compilation issues on Windows
+        return "postgresql+psycopg2://ecommerce_user:ecommerce_password@localhost:5432/ecommerce_db"
     
     # Redis Configuration
     REDIS_URL: Optional[RedisDsn] = None
@@ -90,6 +91,12 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: Optional[str] = None
     EMAILS_FROM_EMAIL: Optional[EmailStr] = None
     EMAILS_FROM_NAME: Optional[str] = None
+    
+    @validator("EMAILS_FROM_EMAIL", pre=True)
+    def validate_email_from(cls, v):
+        if v == "" or v is None:
+            return None
+        return v
     
     # Monitoring and Logging
     LOG_LEVEL: str = "INFO"

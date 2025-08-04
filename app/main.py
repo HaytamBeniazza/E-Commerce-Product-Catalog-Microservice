@@ -81,14 +81,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     
     try:
         # Initialize database connection
-        await init_db_connection()
-        logger.info("Database connection initialized")
+        # await init_db_connection()
+        # logger.info("Database connection initialized")
         
         # Initialize Redis connection
-        await init_redis_connection()
-        logger.info("Redis connection initialized")
+        # await init_redis_connection()
+        # logger.info("Redis connection initialized")
         
-        logger.info("Application startup completed successfully")
+        logger.info("Application startup completed successfully (DB/Redis temporarily disabled)")
         
     except Exception as e:
         logger.error(f"Failed to initialize application: {e}")
@@ -101,12 +101,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     
     try:
         # Close database connection
-        await close_db_connection()
-        logger.info("Database connection closed")
+        # await close_db_connection()
+        # logger.info("Database connection closed")
         
         # Close Redis connection
-        await close_redis_connection()
-        logger.info("Redis connection closed")
+        # await close_redis_connection()
+        # logger.info("Redis connection closed")
         
         logger.info("Application shutdown completed successfully")
         
